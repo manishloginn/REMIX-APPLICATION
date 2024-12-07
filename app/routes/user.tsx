@@ -1,4 +1,51 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
+import { useLoaderData } from "@remix-run/react";
+
+import { LoaderFunction, json } from "@remix-run/node";
+import { ActionFunction, redirect } from "@remix-run/node";
+import { getDb } from "~/db.server";
+
+export const loader: LoaderFunction = async () => {
+    try {
+        const db = await getDb();
+        const quizQuestions = await db.collection("quizQuestions").find().toArray();
+
+        if (!quizQuestions || quizQuestions.length === 0) {
+            console.warn("No quiz questions found in the database.");
+        }
+
+        return json({ quizQuestions });
+    } catch (error) {
+        console.error("Error loading quiz questions:", error);
+        throw new Response("Failed to load quiz questions", { status: 500 });
+    }
+};
+
+export const action: ActionFunction = async ({ request }) => {
+    try {
+        const formData = new URLSearchParams(await request.text());
+        const quizState = JSON.parse(formData.get("quizState") || "{}");
+
+        if (!quizState || Object.keys(quizState).length === 0) {
+            console.warn("Invalid or empty quiz state submitted.");
+            return new Response("Invalid quiz state", { status: 400 });
+        }
+
+        const db = await getDb();
+        const result = await db.collection("quizAttempts").insertOne({
+            userId: "some-user-id", // Replace with actual user ID
+            quizData: quizState,
+            timestamp: new Date(),
+        });
+
+        console.log("Quiz attempt saved successfully:", result.insertedId);
+
+        return redirect("/results");
+    } catch (error) {
+        console.error("Error saving quiz attempt:", error);
+        throw new Response("Failed to save quiz attempt", { status: 500 });
+    }
+};
 
 interface QuestionData {
     question: string;
@@ -13,187 +60,167 @@ interface AttemptedQuestion {
     isCorrect: boolean;
 }
 
-const questionData: QuestionData[] = [
-    {
-        question: "What is the capital of France?",
-        options: ["Berlin", "Madrid", "Paris", "Rome"],
-        correctAnswer: "Paris",
-    },
-    {
-        question: "Which planet is known as the Red Planet?",
-        options: ["Earth", "Mars", "Jupiter", "Saturn"],
-        correctAnswer: "Mars",
-    },
-    {
-        question: "What is the largest mammal on Earth?",
-        options: ["Elephant", "Blue Whale", "Giraffe", "Shark"],
-        correctAnswer: "Blue Whale",
-    },
-    {
-        question: "Which element has the chemical symbol 'O'?",
-        options: ["Oxygen", "Osmium", "Ozone", "Oganesson"],
-        correctAnswer: "Oxygen",
-    },
-    {
-        question: "Which country is the largest by land area?",
-        options: ["Canada", "Russia", "China", "United States"],
-        correctAnswer: "Russia",
-    },
-];
-
 const Quiz = () => {
+    const { quizQuestions }: { quizQuestions: QuestionData[] } = useLoaderData();
     const [questionIndex, setQuestionIndex] = useState<number>(0);
-    const [selectedOption, setSelectedOption] = useState<string>(""); // Track selected option
-    const [score, setScore] = useState<number>(0); // Score state
-    const [answered, setAnswered] = useState<boolean>(false); // Track if the question is answered
-    const [attemptedQuestions, setAttemptedQuestions] = useState<AttemptedQuestion[]>([]); // To track attempted questions
-    const [timeLeft, setTimeLeft] = useState(60); // Timer for each question
+    const [selectedOption, setSelectedOption] = useState<string>("");
+    const [score, setScore] = useState<number>(0);
+    const [answered, setAnswered] = useState<boolean>(false);
+    const [attemptedQuestions, setAttemptedQuestions] = useState<AttemptedQuestion[]>([]);
+    const [timeLeft, setTimeLeft] = useState(60);
 
     const handleNextQuestion = () => {
-        if (questionIndex < questionData.length - 1) {
-            setSelectedOption(""); // Reset selected option for next question
-            setAnswered(false); // Reset answer status for next question
+        if (questionIndex < quizQuestions.length - 1) {
+            setSelectedOption("");
+            setAnswered(false);
             setQuestionIndex(questionIndex + 1);
-            setTimeLeft(60); // Reset timer for next question
+            setTimeLeft(60);
         } else {
-            alert("You have completed the quiz!");
+            alert(`Quiz completed! Your Score is ${score} `);
         }
     };
 
     const handlePreviousQuestion = () => {
         if (questionIndex > 0) {
-            setSelectedOption(""); // Reset selected option when going back
-            setAnswered(false); // Reset answer status for previous question
+            setSelectedOption("");
+            setAnswered(false);
             setQuestionIndex(questionIndex - 1);
         }
-        setTimeLeft(60); // Reset timer for previous question
+        setTimeLeft(60);
     };
 
     const checkAnswer = () => {
-        const correctAnswer = questionData[questionIndex].correctAnswer;
+        const correctAnswer = quizQuestions[questionIndex].correctAnswer;
         if (!selectedOption) {
-            return alert('Please select an option');
+            return alert("Please select an option");
         }
 
-        // Check if the selected answer is correct and update score
         if (correctAnswer === selectedOption) {
-            setScore(prevScore => prevScore + 5); // Increase score for correct answer
+            setScore((prevScore) => prevScore + 5);
         }
 
-        // Mark the question as answered, regardless of correct or incorrect answer
         setAnswered(true);
-
-        // Update the attempted questions list
-        setAttemptedQuestions(prev => [
+        setAttemptedQuestions((prev) => [
             ...prev,
             { questionIndex, selectedOption, correctAnswer, isCorrect: correctAnswer === selectedOption },
         ]);
 
-        // Move to next question after answering
-        setTimeout(handleNextQuestion, 1000); // Wait for 1 second before moving to next question
+        setTimeout(handleNextQuestion, 1000);
     };
 
-    // Function to get the status of the question (answered or not)
     const getAttemptedQuestionStatus = (index: number): AttemptedQuestion | undefined => {
-        return attemptedQuestions.find(q => q.questionIndex === index);
+        return attemptedQuestions.find((q) => q.questionIndex === index);
     };
 
     useEffect(() => {
         if (timeLeft > 0) {
             const timer = setInterval(() => {
-                setTimeLeft(prev => prev - 1);
+                setTimeLeft((prev) => prev - 1);
             }, 1000);
             return () => clearInterval(timer);
         } else {
-            alert('Time is up!');
-            setTimeLeft(60); // Reset the timer
-            handleNextQuestion(); // Move to the next question after time is up
+            alert("Time is up!");
+            setTimeLeft(60);
+            handleNextQuestion();
         }
     }, [timeLeft]);
 
+    if (!quizQuestions || quizQuestions.length === 0) {
+        return (
+            <div className="p-6 max-w-lg mx-auto">
+                <h2 className="text-xl font-bold text-red-500">
+                    No quiz questions available. Please try again later.
+                </h2>
+            </div>
+        );
+    }
+
     return (
         <div className="p-6 max-w-lg mx-auto">
-            <div className='flex justify-between'>
-                <div className="w-100 flex justify-between">
-                    <span
-                        onClick={handlePreviousQuestion}
-                        className={`material-icons cursor-pointer ${questionIndex === 0 ? 'text-gray-400' : ''}`}
-                    >
+            <div className="flex justify-between">
+                <div>
+                    <span className={`material-icons cursor-pointer ${questionIndex === 0 ? 'text-gray-400' : ''}`}
+                        onClick={handlePreviousQuestion} >
                         arrow_back
                     </span>
-
-                    <span
-                        onClick={handleNextQuestion}
-                        className={`material-icons cursor-pointer ${questionIndex === questionData.length - 1 ? 'text-gray-400' : ''}`}
-                    >
+                    <span className={`material-icons cursor-pointer ${questionIndex === quizQuestions.length - 1 ? 'text-gray-400' : ''}`}
+                        onClick={handleNextQuestion} >
                         arrow_forward
                     </span>
-                </div>
-                <div>
-                    <span>{questionIndex + 1}</span>/<span>{questionData.length}</span>
-                </div>
-                <div>
-                    <span>{timeLeft}</span>
-                </div>
-            </div>
 
+                </div>
+                <div>
+                    <span>{questionIndex + 1}</span>/<span>{quizQuestions.length}</span>
+                </div>
+                <div>{timeLeft}</div>
+            </div>
             <div className="mb-6">
                 <h2 className="text-xl font-bold">
-                    Q{questionIndex + 1}: {questionData[questionIndex].question}
+                    Q{questionIndex + 1}: {quizQuestions[questionIndex].question}
                 </h2>
             </div>
             <ul className="grid grid-cols-2 gap-4">
-                {questionData[questionIndex].options.map((option, optionIndex) => {
+                {quizQuestions[questionIndex].options.map((option, index) => {
                     const attemptedStatus = getAttemptedQuestionStatus(questionIndex);
                     const isCorrect = attemptedStatus && attemptedStatus.correctAnswer === option;
                     const isSelected = attemptedStatus && attemptedStatus.selectedOption === option;
 
                     return (
-                        <li key={optionIndex}>
+                        <div key={index} className="flex align-baseline justify-center text-center">
                             <input
                                 type="radio"
-                                name="option"
+                                name="options"
                                 value={option}
-                                id={`option-${optionIndex}`}
-                                checked={selectedOption === option}
-                                onChange={(e) => setSelectedOption(e.target.value)}
+                                id={`option-${index}`}
+                                checked={isSelected}
+                                onChange={() => setSelectedOption(option)}
                                 className="peer sr-only"
-                                disabled={attemptedStatus} // Disable options for attempted questions
+                                disabled={answered}
                             />
                             <label
-                                htmlFor={`option-${optionIndex}`}
-                                className={`cursor-pointer px-4 py-2 rounded bg-gray-100
-                                
-                                    ${selectedOption === option ? 'bg-blue-900' : ''}
-                                    ${answered && option === questionData[questionIndex].correctAnswer ? "bg-green-500" : ""}
-                                    ${answered && option === selectedOption && option !== questionData[questionIndex].correctAnswer ? "bg-red-700" : ""}
-                                    ${isSelected ? "bg-blue-200" : ""}
-                                    ${isCorrect && !isSelected ? "bg-green-500" : ""}
-                                `}
-                                style={{
-                                    height: '200px',  // Set height to 500px
-                                    width: '100%',   // Adjust width as needed
-                                    display: 'flex', // Allow flex to adjust content inside label
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}
+                                htmlFor={`option-${index}`}
+                                className={`cursor-pointer flex justify-center items-center block p-4 border rounded-lg bg-gray-100
+            min-h-[200px] min-w-[200px]
+            ${isSelected ? "bg-blue-900 text-white" : ""}
+            ${answered && option === quizQuestions[questionIndex].correctAnswer ? "bg-green-500 text-white" : ""}
+            ${answered && option === selectedOption && option !== quizQuestions[questionIndex].correctAnswer ? "bg-red-700 text-white" : ""}
+            peer-checked:bg-blue-900 peer-checked:text-white
+            peer-checked:transition-colors peer-checked:duration-200
+          `}
+                                role="button"
+                                tabIndex={0}
                             >
                                 {option}
                             </label>
-                        </li>
+                        </div>
                     );
                 })}
             </ul>
+
             <button
+                className="bg-red-600 text-white px-6 py-3 rounded-lg mt-6"
                 onClick={checkAnswer}
-                className='bg-red-600 border-none outline-none text-white px-5 py-3 mt-10 rounded-3xl'
-                disabled={answered} // Disable the check button if the question is already answered
+                disabled={answered}
             >
-                Check your answer
+                Check Answer
             </button>
-            <div className="mt-6">
-                <p>Your score: {score}</p> {/* Display score */}
-            </div>
+            <div>Your score: {score}</div>
+
+            {
+                attemptedQuestions.length > 0 ? (
+                    <div className="mt-4">
+                        <h3 className="text-lg font-bold">Previous Attempts</h3>
+                        {attemptedQuestions.map((attempt, idx) => (
+                            <div key={idx} className={`p-2 mt-4 rounded ${attempt.isCorrect ? "bg-green-200" : "bg-red-200"}`}>
+                                <p>Q{attempt.questionIndex + 1}: {quizQuestions[attempt.questionIndex].question}</p>
+                                <p>Your Answer: {attempt.selectedOption}</p>
+                                <p>Correct Answer: {attempt.correctAnswer}</p>
+                            </div>
+                        ))}
+                    </div>
+                ) : ('')
+            }
+
         </div>
     );
 };
