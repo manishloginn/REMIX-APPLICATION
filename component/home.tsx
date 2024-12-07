@@ -1,18 +1,11 @@
-import type { MetaFunction } from "@remix-run/node";
-import { Link } from "@remix-run/react";
-import '../../style/home.css'
+import React from 'react'
+import '../style/home.css'
+import { Link } from '@remix-run/react'
 
-export const meta: MetaFunction = () => {
-  return [
-    { title: "New Remix App" },
-    { name: "description", content: "Welcome to Remix!" },
-  ];
-};
-
-export default function Index() {
-  return (
-    <div className="flex h-screen items-center justify-center">
-       <section id="herosection" className="herosection ">
+const home = () => {
+    return (
+        <>
+            <section id="herosection" className="herosection ">
                 <div className="hero1">
                     <div className="contentttt">
                         <p className="para1">Learn new concepts for each question</p>
@@ -26,7 +19,7 @@ export default function Index() {
                     </div>
                     <div className="mt-5">
                         <button id="Start_solving" className="btnnnnn">
-                            <Link to='/user'>  Student</Link>
+                            <Link to='/Quiz'>  Student</Link>
                         </button>
                         <button id="Start_solving" className="btnnnnn ml-3">
                             <Link to='/admin'>Admin</Link>
@@ -34,6 +27,10 @@ export default function Index() {
                     </div>
                 </div>
             </section>
-    </div>
-  );
+        </>
+
+    )
 }
+
+export default home
+
