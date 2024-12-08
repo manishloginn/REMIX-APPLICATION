@@ -11,7 +11,7 @@ export const loader: LoaderFunction = async () => {
         const db = await getDb();
         if (!db) {
             console.error("Database connection not established");
-          }          
+        }
         const quizQuestions = await db.collection("quizQuestions").find().toArray();
 
         if (!quizQuestions || quizQuestions.length === 0) {
@@ -28,35 +28,35 @@ export const loader: LoaderFunction = async () => {
 
 export const action: ActionFunction = async ({ request }) => {
     try {
-      const formData = await request.formData();
-      const question = formData.get("question");
-      const options = [
-        formData.get("option1"),
-        formData.get("option2"),
-        formData.get("option3"),
-        formData.get("option4"),
-      ];
-      const correctAnswer = formData.get("correctAnswer");
-  
-      if (!question || !correctAnswer || options.some((o) => !o)) {
-        return json({ error: "All fields are required" }, { status: 400 });
-      }
-  
-      const db = await getDb();
-    //   const result = await db.collection("quizQuestions").insertOne({
-    //     question,
-    //     options,
-    //     correctAnswer,
-    //   });
-  
-    //   console.log("Question saved successfully:", result.insertedId);
-      return json({ success: "Question added successfully" });
+        const formData = await request.formData();
+        const question = formData.get("question");
+        const options = [
+            formData.get("option1"),
+            formData.get("option2"),
+            formData.get("option3"),
+            formData.get("option4"),
+        ];
+        const correctAnswer = formData.get("correctAnswer");
+
+        if (!question || !correctAnswer || options.some((o) => !o)) {
+            return json({ error: "All fields are required" }, { status: 400 });
+        }
+
+        const db = await getDb();
+        //   const result = await db.collection("quizQuestions").insertOne({
+        //     question,
+        //     options,
+        //     correctAnswer,
+        //   });
+
+        //   console.log("Question saved successfully:", result.insertedId);
+        return json({ success: "Question added successfully" });
     } catch (error) {
-      console.error("Failed to save question:", error);
-      return json({ error: "Failed to save question" }, { status: 500 });
+        console.error("Failed to save question:", error);
+        return json({ error: "Failed to save question" }, { status: 500 });
     }
-  };
-  
+};
+
 
 interface QuestionData {
     question: string;
@@ -146,9 +146,16 @@ const Quiz = () => {
         );
     }
 
+    const progress = (questionIndex / quizQuestions.length) * 100;
+
+
     return (
         <div className="p-6 max-w-lg mx-auto">
+           <div className="w-full bg-gray-300 h-2 mb-5">
+                <div className="h-full bg-green-500 " style={{ width: `${progress}%` }}></div>
+            </div>
             <div className="flex justify-between">
+
                 <div>
                     <span className={`material-icons cursor-pointer ${questionIndex === 0 ? 'text-gray-400' : ''}`}
                         onClick={handlePreviousQuestion} >

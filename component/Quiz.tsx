@@ -148,6 +148,7 @@ const Quiz = () => {
 
     return (
         <div className="p-6 max-w-lg mx-auto">
+                
             <div className="flex justify-between">
                 <div>
                     <span className={`material-icons cursor-pointer ${questionIndex === 0 ? 'text-gray-400' : ''}`}
