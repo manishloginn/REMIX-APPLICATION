@@ -8,12 +8,16 @@ import { getDb } from "~/db.server";
 export const loader: LoaderFunction = async () => {
     try {
         const db = await getDb();
+        if (!db) {
+            console.error("Database connection not established");
+          }          
         const quizQuestions = await db.collection("quizQuestions").find().toArray();
 
         if (!quizQuestions || quizQuestions.length === 0) {
             console.warn("No quiz questions found in the database.");
         }
 
+        // console.log(quizQuestions)
         return json({ quizQuestions });
     } catch (error) {
         console.error("Error loading quiz questions:", error);
@@ -23,29 +27,35 @@ export const loader: LoaderFunction = async () => {
 
 export const action: ActionFunction = async ({ request }) => {
     try {
-        const formData = new URLSearchParams(await request.text());
-        const quizState = JSON.parse(formData.get("quizState") || "{}");
-
-        if (!quizState || Object.keys(quizState).length === 0) {
-            console.warn("Invalid or empty quiz state submitted.");
-            return new Response("Invalid quiz state", { status: 400 });
-        }
-
-        const db = await getDb();
-        const result = await db.collection("quizAttempts").insertOne({
-            userId: "some-user-id", // Replace with actual user ID
-            quizData: quizState,
-            timestamp: new Date(),
-        });
-
-        console.log("Quiz attempt saved successfully:", result.insertedId);
-
-        return redirect("/results");
+      const formData = await request.formData();
+      const question = formData.get("question");
+      const options = [
+        formData.get("option1"),
+        formData.get("option2"),
+        formData.get("option3"),
+        formData.get("option4"),
+      ];
+      const correctAnswer = formData.get("correctAnswer");
+  
+      if (!question || !correctAnswer || options.some((o) => !o)) {
+        return json({ error: "All fields are required" }, { status: 400 });
+      }
+  
+      const db = await getDb();
+    //   const result = await db.collection("quizQuestions").insertOne({
+    //     question,
+    //     options,
+    //     correctAnswer,
+    //   });
+  
+    //   console.log("Question saved successfully:", result.insertedId);
+      return json({ success: "Question added successfully" });
     } catch (error) {
-        console.error("Error saving quiz attempt:", error);
-        throw new Response("Failed to save quiz attempt", { status: 500 });
+      console.error("Failed to save question:", error);
+      return json({ error: "Failed to save question" }, { status: 500 });
     }
-};
+  };
+  
 
 interface QuestionData {
     question: string;
