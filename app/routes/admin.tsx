@@ -1,13 +1,9 @@
 import { ActionFunction, json } from "@remix-run/node";
 import { Form, useActionData } from "@remix-run/react";
+import { useRef } from "react";
 import getDb from "~/db.server";
 import Question from "~/db.server";
 // import { connectToDatabase, Question } from "~/utils/db.server";
-
-
-
-
-
 
 export const action: ActionFunction = async ({ request }) => {
 
@@ -32,7 +28,7 @@ export const action: ActionFunction = async ({ request }) => {
     try {
         const newQuestion = new Question({ question, options, correctAnswer });
         await newQuestion.save();
-        
+
         return json({ success: "Question added successfully" });
     } catch (error) {
         console.error("Database save error:", error);
@@ -42,12 +38,17 @@ export const action: ActionFunction = async ({ request }) => {
 
 export default function AdminPage() {
     const actionData = useActionData();
+    const formRef = useRef<HTMLFormElement>(null); // Reference for the form
 
+    // Clear form after successful submission
+    if (actionData?.success) {
+        formRef.current?.reset(); // Reset the form
+    }
 
     return (
         <div className="max-w-lg mx-auto p-6">
             <h1 className="text-2xl font-bold mb-4">Add a New Question</h1>
-            <Form method="post" className="space-y-4">
+            <Form method="post" ref={formRef} className="space-y-4">
                 <div>
                     <label className="block text-sm font-medium mb-2">Question</label>
                     <input

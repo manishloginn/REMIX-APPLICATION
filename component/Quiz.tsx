@@ -1,4 +1,4 @@
-import React, { useEffect, useState, Suspense } from "react";
+import React, { useEffect, useState } from "react";
 import { useLoaderData } from "@remix-run/react";
 
 import { LoaderFunction, json } from "@remix-run/node";
@@ -236,16 +236,4 @@ const Quiz = () => {
     );
 };
 
-
-const user = () => {
-    return (
-        <div className="text-center">
-            {/* <h1>Welcome to the Quiz!</h1> */}
-            <Suspense fallback={<div>Loading Quiz...</div>}>
-                <Quiz />
-            </Suspense>
-        </div>
-    )
-}
-
-export default user
+export default Quiz;
